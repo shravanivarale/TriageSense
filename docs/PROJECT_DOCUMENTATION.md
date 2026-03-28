@@ -25,6 +25,15 @@ TriageSense analyzes every ticket across 5 dimensions simultaneously:
 - **Orchestration**: n8n for workflow automation and webhook integrations
 - **Deployment**: Vercel (frontend) + Railway (backend + DB + Redis)
 
+## n8n Orchestration Architecture
+To handle real-world connectivity during the hackathon demo, TriageSense relies on **n8n** as an external orchestration layer. This keeps the core AI pipeline completely decoupled and lightning fast. 
+
+There are two primary integration points:
+1. **The Ingestion Pipeline (Input)**: n8n listens to real-world channels (e.g., Slack `#support`, Intercom webhooks, or Gmail). It formats the incoming data and sends a direct `POST` to the TriageSense API (`/tickets`).
+2. **The Action Router (Output)**: When TriageSense finishes evaluating a ticket, the Python backend checks for an `N8N_WEBHOOK_URL` environment variable. If present, it instantly fires a `POST` outbound webhook containing the full AI composite analysis. n8n catches this webhook, evaluates the `urgency_label` (e.g., `CRITICAL`), and can execute real actions like triggering PagerDuty or replying back in Slack.
+
+*(For detailed setup, see `docs/N8N_INTEGRATION_GUIDE.md`)*
+
 ## Key Innovations
 1. **Parallel agent execution** — all agents run simultaneously via `asyncio.gather`, not sequentially
 2. **Cluster Storm Detection** — real-time alert when 10+ tickets share a cluster in 30 minutes

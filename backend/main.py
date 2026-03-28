@@ -14,6 +14,8 @@ from schemas import TicketSubmit, TicketResponse, BulkSubmit
 from agents import analyze_ticket_parallel
 from redis_client import get_redis, publish_event
 import uuid
+import httpx
+import os
 
 
 # ─── WebSocket connection manager ───
@@ -167,6 +169,15 @@ async def process_ticket_background(ticket_id: str, raw_text: str, customer_tier
             "type": "ticket_processed",
             "payload": ticket_dict
         })
+
+        # Fire outbound webhook to n8n (Orchestration Layer) if configured
+        webhook_url = os.environ.get("N8N_WEBHOOK_URL")
+        if webhook_url:
+            try:
+                async with httpx.AsyncClient() as client:
+                    await client.post(webhook_url, json=ticket_dict, timeout=3.0)
+            except Exception as e:
+                print(f"Failed to trigger n8n webhook: {e}")
 
         # Check for cluster storm (10+ tickets with same cluster_label in 30 min)
         thirty_min_ago = datetime.utcnow() - timedelta(minutes=30)

@@ -1,0 +1,95 @@
+{
+  "name": "Gmail to TriageSense Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {
+          "labelIds": [
+            "INBOX",
+            "UNREAD"
+          ],
+          "q": "is:unread"
+        },
+        "options": {
+          "markAsRead": true
+        }
+      },
+      "id": "e0c8b217-15d9-4b92-8004-9a1bf042079a",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/tickets",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "raw_text",
+              "value": "={{$json.textPlain}}"
+            },
+            {
+              "name": "subject",
+              "value": "={{$json.subject}}"
+            },
+            {
+              "name": "customer_name",
+              "value": "={{$json.from.name || $json.from.address}}"
+            },
+            {
+              "name": "customer_email",
+              "value": "={{$json.from.address}}"
+            },
+            {
+              "name": "customer_tier",
+              "value": "pro"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f",
+      "name": "POST to TriageSense",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        460,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "POST to TriageSense",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}
