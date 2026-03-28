@@ -1,0 +1,120 @@
+{
+  "name": "TriageSense Ticket Webhook",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "triagesense/ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.featherless.ai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"model\":\"Qwen/Qwen3-32B\",\"max_tokens\":800,\"temperature\":0.1,\"messages\":[{\"role\":\"system\",\"content\":\"You are a world-class support triage expert. Analyze the ticket and output ONLY valid JSON with urgency_score (0-100), urgency_label (CRITICAL|HIGH|MEDIUM|LOW), urgency_signals (array of verbatim phrases), and confidence (0.0-1.0).\"},{\"role\":\"user\",\"content\":\"TICKET: {{ $json.body.raw_text }}\"}]}",
+        "options": {}
+      },
+      "name": "Urgency Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 150],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.featherless.ai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"model\":\"Qwen/Qwen3-32B\",\"max_tokens\":800,\"temperature\":0.1,\"messages\":[{\"role\":\"system\",\"content\":\"You are an expert at detecting customer emotional state. Output ONLY valid JSON with sentiment_score (-100 to 100), primary_emotion, escalation_risk (0-100), verbatim_signals, and confidence.\"},{\"role\":\"user\",\"content\":\"TICKET: {{ $json.body.raw_text }}\"}]}",
+        "options": {}
+      },
+      "name": "Sentiment Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 300],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.featherless.ai/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"model\":\"Qwen/Qwen3-32B\",\"max_tokens\":800,\"temperature\":0.1,\"messages\":[{\"role\":\"system\",\"content\":\"You are a support ticket classification expert. Output ONLY valid JSON with category, subcategory, cluster_label, cluster_keywords, and confidence.\"},{\"role\":\"user\",\"content\":\"TICKET: {{ $json.body.raw_text }}\"}]}",
+        "options": {}
+      },
+      "name": "Cluster Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [500, 450],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "mergeByFields": {},
+        "options": {}
+      },
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "position": [750, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'processed', ticket_id: $json.body?.id || 'unknown' }) }}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [950, 300],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Urgency Agent", "type": "main", "index": 0 },
+          { "node": "Sentiment Agent", "type": "main", "index": 0 },
+          { "node": "Cluster Agent", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Urgency Agent": {
+      "main": [
+        [{ "node": "Merge Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sentiment Agent": {
+      "main": [
+        [{ "node": "Merge Results", "type": "main", "index": 1 }]
+      ]
+    },
+    "Cluster Agent": {
+      "main": [
+        [{ "node": "Merge Results", "type": "main", "index": 0 }]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
