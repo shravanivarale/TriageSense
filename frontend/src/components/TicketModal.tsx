@@ -190,8 +190,11 @@ export function TicketModal() {
           </div>
 
           {/* Confidence & Timing Data */}
-          <ConfidencePanel ticket={t} />
-
+          <ConfidencePanel 
+            urgencyConfidence={t.urgency_confidence} 
+            sentimentConfidence={t.sentiment_confidence} 
+            processingTimeMs={t.processing_time_ms} 
+          />
         </div>
       </div>
     </div>
