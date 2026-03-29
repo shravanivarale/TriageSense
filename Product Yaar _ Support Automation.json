@@ -1,0 +1,198 @@
+{
+  "name": "Product Yaar : Support Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"summary\": \"A brief summary of the email content\",\n  \"department\": \"The department responsible for resolving the issue\",\n  \"issue_type\": \"The type of issue reported\",\n  \"priority\": \"The priority level of the issue\",\n  \"sender_email\": \"The email address of the sender\",\n  \"date_time\": \"The date and time the email was received\",\n  \"ticket_id\": \"A unique identifier generated for this support ticket\"\n}"
+      },
+      "id": "598d751a-22e8-45aa-918f-1fcbf2957b11",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1712,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        384
+      ],
+      "id": "4a899ef7-6588-4440-9886-25adb9aa8a8d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "9TkkbjvnPhGkOtlR",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the following email and provide a summary and classification.\n\nFrom:{{ $json.From }}  Subject: {{ $json.Subject }} Date:{{ $now }} Body: {{ $json.snippet }} Ticket ID : {{ $json.id }}\n\nYou are a support ticket triage assistant for an EdTech company that sells online Product Management courses. Analyze the incoming student support email and classify it.\n\nReturn ONLY a valid JSON object. No explanation, no markdown, no extra text.\n\n---\n\n## STEP 1 — IDENTIFY DEPARTMENT\n\nChoose exactly ONE department based on the primary complaint:\n\n**Sales** — course inquiries, pricing, syllabus requests, demo requests, career guidance, counselor requests\n**Finance** — payment failures, money deducted but no access, refunds, invoices, payment verification\n**Tech Support** — website bugs, platform crashes, video not loading, login problems, dashboard errors, app issues\n**Academic Support** — course access problems, assignment questions, certificate requests, progress tracking, lecture queries\n**General Support** — unclear queries, mixed issues, anything that doesn't fit above\n\nTiebreaker: if the issue spans two departments, pick the one matching the most urgent complaint.\n\n---\n\n## STEP 2 — IDENTIFY ISSUE TYPE\n\nPick the closest match from this list:\nPayment Failure | Refund Request | Course Access Issue | Login Issue | Video Not Loading | Website Bug | Pricing Inquiry | Course Inquiry | Demo Request | Assignment Query | Certificate Request | General Question\n\n---\n\n## STEP 3 — ASSIGN PRIORITY (based on department)\n\nOnce you have identified the department, use ONLY that department's priority rules below.\n\n### Sales\nCritical — (not applicable)\nHigh     — student is ready to pay but blocked; urgent admission deadline mentioned\nMedium   — syllabus inquiry, pricing question, demo request, counselor request\nLow      — general course curiosity, no urgency indicated\n\n### Payments\nCritical — payment gateway fully down, multiple students affected\nHigh     — payment deducted but course access not granted; refund dispute older than 7 days\nMedium   — refund request (within normal window); invoice request; payment verification pending\nLow      — general billing question, no transaction involved\n\n### Tech Support\nCritical — website or dashboard completely down; platform outage affecting multiple users\nHigh     — student cannot log in at all; purchased course is inaccessible due to platform bug\nMedium   — video buffering or not loading; minor dashboard errors; slow app performance\nLow      — cosmetic UI issues; feature suggestions; non-blocking glitches\n\n### Academic Support\nCritical — (not applicable)\nHigh     — course access denied after valid enrollment; certificate blocked after course completion\nMedium   — assignment query; lecture question; progress not syncing\nLow      — general academic curiosity; non-urgent certificate follow-up\n\n### General Support\nCritical — (not applicable)\nHigh     — (not applicable)\nMedium   — mixed or unclear complaint that could affect course access or payments\nLow      — vague feedback, suggestions, compliments, or unclassifiable queries\n\nEscalation rule: when in doubt between two priority levels, always assign the higher one.\n\n---\n\n## STEP 4 — WRITE SUMMARY\n\nOne sentence, max 15 words, describing the core issue clearly.\n\n---\n\n## OUTPUT FORMAT\n\nReturn ONLY this JSON. No extra keys, no extra text.\n\n{\n  \"department\": \"\",\n  \"issue_type\": \"\",\n  \"priority\": \"\",\n  \"summary\": \"\"\n}\n\n---\n\n## EXAMPLES\n\nEmail: \"My payment got deducted but I still can't access the course.\"\nOutput:\n{\n  \"department\": \"Payments\",\n  \"issue_type\": \"Payment Failure\",\n  \"priority\": \"High\",\n  \"summary\": \"Payment deducted but student cannot access course\"\n}\n\nEmail: \"I want to know the syllabus before purchasing the PM course.\"\nOutput:\n{\n  \"department\": \"Sales\",\n  \"issue_type\": \"Course Inquiry\",\n  \"priority\": \"Medium\",\n  \"summary\": \"Student requesting syllabus before making a purchase\"\n}\n\nEmail: \"The website is not loading since morning and I have an assignment due today.\"\nOutput:\n{\n  \"department\": \"Tech Support\",\n  \"issue_type\": \"Website Bug\",\n  \"priority\": \"Critical\",\n  \"summary\": \"Website down, student has urgent assignment deadline today\"\n}\n\nEmail: \"I completed the course two weeks ago but my certificate still hasn't arrived.\"\nOutput:\n{\n  \"department\": \"Academic Support\",\n  \"issue_type\": \"Certificate Request\",\n  \"priority\": \"High\",\n  \"summary\": \"Certificate not received two weeks after course completion\"\n}\n\nEmail: \"I raised a refund request 10 days ago and haven't heard back.\"\nOutput:\n{\n  \"department\": \"Payments\",\n  \"issue_type\": \"Refund Request\",\n  \"priority\": \"High\",\n  \"summary\": \"Refund request unresolved for over 7 days, student following up\"\n}\n\nEmail: \"I'd love a dark mode for the dashboard someday!\"\nOutput:\n{\n  \"department\": \"General Support\",\n  \"issue_type\": \"General Question\",\n  \"priority\": \"Low\",\n  \"summary\": \"Student requesting dark mode as a feature suggestion\"\n}\n\n---\n\n## EMAIL TO ANALYZE\n\nSubject: {{ $json.subject }}\n\nMessage:\n{{ $json.body }}\n\n---\n\nReturn ONLY valid JSON. Nothing else.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "id": "9ce0a4ec-811f-420c-9cd3-9efaf737117a",
+      "name": "Summarize and Classify Email",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1568,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        1392,
+        176
+      ],
+      "id": "a8f9efe7-0c80-40d5-b946-6f693368709f",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "bjTLORozsK1uLesh",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "tickets",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "ticket_id",
+              "fieldValue": "={{ $json.output.ticket_id }}"
+            },
+            {
+              "fieldId": "sender_email",
+              "fieldValue": "={{ $json.output.sender_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Gmail Trigger').item.json.Subject }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.output.summary }}"
+            },
+            {
+              "fieldId": "department",
+              "fieldValue": "={{ $json.output.department }}"
+            },
+            {
+              "fieldId": "priority",
+              "fieldValue": "={{ $json.output.priority }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "Open"
+            },
+            {
+              "fieldId": "issue_type",
+              "fieldValue": "={{ $json.output.issue_type }}"
+            },
+            {
+              "fieldId": "date_time",
+              "fieldValue": "={{ $json.output.date_time }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1888,
+        176
+      ],
+      "id": "30f28b94-b6e7-4337-97b1-560e2a2b4452",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "L1R1Qny6d7GGTCTK",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Summarize and Classify Email",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarize and Classify Email",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarize and Classify Email": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Summarize and Classify Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "924ae64b-bf1d-4f21-9a16-5c3463172cc3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a2d1178fcd3d97d42024c02016c1ca4caa40f05a7ded3abdf04c1b7c92afff1f"
+  },
+  "id": "6igHdPE4WwVGQqto",
+  "tags": []
+}
